@@ -1,20 +1,103 @@
-﻿// LR_8.cpp : Этот файл содержит функцию "main". Здесь начинается и заканчивается выполнение программы.
-//
-
+﻿#include <windows.h>
 #include <iostream>
+#include <tchar.h>
+#include <sstream>
 
-int main()
+CRITICAL_SECTION cs;
+
+DWORD WINAPI writer(void* lpPar)
 {
-    std::cout << "Hello World!\n";
+	TCHAR* b = new TCHAR();
+	b = (TCHAR*)lpPar;
+
+	HANDLE hOut;
+	DWORD dwBytes;
+	FILE* fp;
+
+	TCHAR stdPath[30] = TEXT("test.txt");
+
+	EnterCriticalSection(&cs);
+
+	hOut = CreateFile(stdPath, GENERIC_WRITE, 0, NULL,
+		CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+
+	if (hOut == INVALID_HANDLE_VALUE)
+	{
+		std::cout << "ERROR WRITING FILE";
+		return 1;
+	}
+	else
+	{
+		WriteFile(hOut, b, 256, &dwBytes, NULL);
+		std::cout << "Writer work\n";
+		CloseHandle(hOut);
+	}
+
+	LeaveCriticalSection(&cs);
+	return 0;
 }
 
-// Запуск программы: CTRL+F5 или меню "Отладка" > "Запуск без отладки"
-// Отладка программы: F5 или меню "Отладка" > "Запустить отладку"
 
-// Советы по началу работы 
-//   1. В окне обозревателя решений можно добавлять файлы и управлять ими.
-//   2. В окне Team Explorer можно подключиться к системе управления версиями.
-//   3. В окне "Выходные данные" можно просматривать выходные данные сборки и другие сообщения.
-//   4. В окне "Список ошибок" можно просматривать ошибки.
-//   5. Последовательно выберите пункты меню "Проект" > "Добавить новый элемент", чтобы создать файлы кода, или "Проект" > "Добавить существующий элемент", чтобы добавить в проект существующие файлы кода.
-//   6. Чтобы снова открыть этот проект позже, выберите пункты меню "Файл" > "Открыть" > "Проект" и выберите SLN-файл.
+DWORD WINAPI reader(void* lpPar)
+{
+	TCHAR* b = new TCHAR();
+	b = (TCHAR*)lpPar;
+
+	HANDLE hOut;
+	FILE* fp;
+	DWORD dwCounter, dwTemp;
+
+	TCHAR stdPath[30] = TEXT("test.txt");
+
+	EnterCriticalSection(&cs);
+
+	hOut = CreateFile(stdPath, GENERIC_READ, 0, NULL,
+		OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+
+	if (hOut == INVALID_HANDLE_VALUE)
+	{
+		std::cout << "ERROR READING FILE";
+		return 1;
+	}
+	else
+	{
+		ReadFile(hOut, &dwCounter, sizeof(dwCounter), &dwTemp, NULL);
+		std::cout << "Reader work " << std::endl;
+		CloseHandle(hOut);
+	}
+	LeaveCriticalSection(&cs);
+	return 0;
+}
+
+int _tmain(int argc, _TCHAR* argv[])
+{
+	int z = 0;
+	DWORD writerID;
+	DWORD readerID;
+
+	TCHAR buff[256] = TEXT("Writer");
+
+	InitializeCriticalSection(&cs);
+
+	HANDLE writer_handle = CreateThread(0, 0, writer, (void*)buff, CREATE_SUSPENDED, &writerID);
+	BOOL b = SetThreadPriorityBoost(writer_handle, false);
+
+	if (b)
+	{
+		SetThreadPriority(writer_handle, THREAD_PRIORITY_HIGHEST);
+	}
+
+	HANDLE reader_handle = CreateThread(0, 0, reader, &z, CREATE_SUSPENDED, &readerID);
+
+	ResumeThread(writer_handle);
+	ResumeThread(reader_handle);
+	WaitForSingleObject(writer_handle, 10000);
+	WaitForSingleObject(reader_handle, 10000);
+
+	TerminateThread(writer_handle, 0);
+	TerminateThread(reader_handle, 0);
+
+	getchar();
+
+	return 0;
+}
