@@ -3,6 +3,8 @@
 #include <tchar.h>
 #include <sstream>
 
+#pragma warning(disable : 4996)
+
 CRITICAL_SECTION cs;
 
 DWORD WINAPI writer(void* lpPar)
@@ -45,7 +47,8 @@ DWORD WINAPI reader(void* lpPar)
 
 	HANDLE hOut;
 	FILE* fp;
-	DWORD dwCounter, dwTemp;
+	DWORD dwTemp;
+	char dwArr[10];
 
 	TCHAR stdPath[30] = TEXT("test.txt");
 
@@ -61,8 +64,8 @@ DWORD WINAPI reader(void* lpPar)
 	}
 	else
 	{
-		ReadFile(hOut, &dwCounter, sizeof(dwCounter), &dwTemp, NULL);
-		std::cout << "Reader work " << std::endl;
+		ReadFile(hOut, &dwArr, sizeof(dwArr), &dwTemp, NULL);
+		std::cout << "Reader work: " <<dwArr<< std::endl;
 		CloseHandle(hOut);
 	}
 	LeaveCriticalSection(&cs);
@@ -75,11 +78,12 @@ int _tmain(int argc, _TCHAR* argv[])
 	DWORD writerID;
 	DWORD readerID;
 
-	TCHAR buff[256] = TEXT("Writer");
+	char* u = new char();
+	_itoa(123456789, u, 10);
 
 	InitializeCriticalSection(&cs);
 
-	HANDLE writer_handle = CreateThread(0, 0, writer, (void*)buff, CREATE_SUSPENDED, &writerID);
+	HANDLE writer_handle = CreateThread(0, 0, writer, (void*)u, CREATE_SUSPENDED, &writerID);
 	BOOL b = SetThreadPriorityBoost(writer_handle, false);
 
 	if (b)
